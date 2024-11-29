@@ -1,0 +1,353 @@
+{% load static %}
+{% load widget_tweaks %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agregar Pedido</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .mesa {
+            border: 1px solid #ddd;
+            padding: 8px;
+            margin: 4px;
+            color: white;
+            font-weight: 600;
+            border-radius: 5px;
+            box-shadow: 4px 2px 5px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            width: 90px;
+            height: 90px;
+            font-size: 13px; /* Reducido tamaño de la fuente */
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s; /* Suaviza las transiciones */
+        }
+        .mesa-ocupada {
+            background-color: #ff4c4c; 
+            cursor: not-allowed;
+        }
+        .mesa-libre {
+            background-color: #4caf50; 
+        }
+        .mesa-reservada {
+            background-color: #2196f3;
+        }
+        .mesa-seleccionada {
+            border: 3px solid #000;
+            box-shadow: 0 0 8px #000;
+            transform: scale(1.05); /* Efecto de aumento al seleccionar */
+        }
+        .mesa:hover {
+            transform: scale(1.05); /* Efecto de aumento al pasar el mouse */
+            box-shadow: 5px 4px 8px rgba(0, 0, 0, 0.2); /* Sombra más prominente */
+        }
+        .mesas-container {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+        .container-calculo {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            background-color: #f9f9f9;
+        }
+    </style>
+    
+    <style>
+        .categoria-btn {
+            background-color: #4CAF50; /* Fondo verde */
+            color: white;
+            border-radius: 25px; /* Forma más compacta */
+            padding: 6px 14px; /* Reducido el tamaño */
+            font-size: 12px; /* Fuente más pequeña */
+            font-weight: bold;
+            border: 2px solid transparent;
+            transition: background-color 0.3s, transform 0.3s, border-color 0.3s;
+        }
+    
+        .categoria-btn:hover {
+            background-color: #45a049; /* Fondo verde más oscuro */
+            transform: scale(1.05); /* Escala al pasar el cursor */
+            border-color: #388e3c; /* Bordes verdes al pasar el mouse */
+        }
+    
+        .producto-btn {
+            background-color: #007bff; /* Fondo azul */
+            color: white;
+            border-radius: 4px; /* Bordes más redondeados */
+            padding: 5px 10px; /* Aún más pequeño */
+            font-size: 11px; /* Fuente aún más pequeña */
+            font-weight: bold;
+            margin: 4px;
+            border: 2px solid transparent;
+            transition: background-color 0.3s, transform 0.3s, border-color 0.3s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Sombra sutil */
+        }
+    
+        .producto-btn:hover {
+            background-color: #0056b3; /* Fondo azul más oscuro */
+            transform: scale(1.05); /* Efecto de escala */
+            border-color: #004085; /* Bordes azules al pasar el mouse */
+        }
+    
+        .producto-btn:active {
+            background-color: #003f7d; /* Fondo más oscuro al hacer clic */
+            transform: scale(1); /* Evita que crezca al hacer clic */
+        }
+    
+        .categoria-btn:focus, .producto-btn:focus {
+            outline: none; /* Eliminar borde de enfoque */
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+        <div class="container-fluid">
+            <img src="{% static 'images/logo.png' %}" alt="" width="40 px" height="40">
+            <a class="navbar-brand fs-4 fw-bolder fst-italic ms-2" href="#">RestConnect</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active fw-bolder" aria-current="page" href="#">Inicio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-bolder" href="#">Inventario</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-bolder" href="#">Resumen de Ventas</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-bolder" href="#">Carta</a>
+                    </li>
+                </ul>
+            </div>
+            <span class="welcome-msg fw-bolder fst-italic">Usuario, {{ user.username }}</span>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h2>Agregar Pedido</h2>
+
+        <form method="POST" id="pedido-form">
+            {% csrf_token %}
+
+            <!-- Selección de mesa -->
+            <input type="hidden" name="mesa" id="mesa-seleccionada" />
+
+            <!-- Productos seleccionados -->
+            <input type="hidden" name="productos" id="productos-seleccionados" />
+
+            <!-- Mesas dinámicas -->
+            <div class="mesas-container">
+                {% for mesa in mesas %}
+                    <button 
+                        type="button" 
+                        class="mesa {% if mesa.estado == 'ocupada' %}mesa-ocupada{% elif mesa.estado == 'reservada' %}mesa-reservada{% else %}mesa-libre{% endif %}" 
+                        data-mesa-id="{{ mesa.id }}" 
+                        {% if mesa.estado != 'libre' %}disabled{% endif %}>
+                        Mesa {{ mesa.numero_mesa }}
+                    </button>
+                {% endfor %}
+            </div>
+
+            <div id="productos-container" class="mt-3">
+                <h5>Selecciona los productos:</h5>
+                
+                <!-- Botones de categorías -->
+                <div id="categorias-lista">
+                    <button type="button" class="btn btn-outline-secondary categoria-btn" data-categoria="Comida">Comida</button>
+                    <button type="button" class="btn btn-outline-secondary categoria-btn" data-categoria="Bebida">Bebida</button>
+                    <button type="button" class="btn btn-outline-secondary categoria-btn" data-categoria="Postre">Postre</button>
+                </div>
+
+                <!-- Productos (inicialmente ocultos) -->
+                <div id="productos-lista" style="display: none;">
+                    {% for producto in productos %}
+                        <div class="producto-item" data-categoria="{{ producto.categoria }}">
+                            <button 
+                                type="button" 
+                                class="btn btn-outline-primary producto-btn" 
+                                data-id="{{ producto.id }}" 
+                                data-nombre="{{ producto.nombre }}" 
+                                data-precio="{{ producto.precio }}">
+                                {{ producto.nombre }}
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Detalle del pedido -->
+            <div class="container-calculo mt-4">
+                <h5>Detalles del Pedido:</h5>
+                <div id="productos-seleccionados-lista"></div>
+                <p><strong>Subtotal:</strong> <span id="subtotal">0</span> CLP</p>
+                <p><strong>10% Propina:</strong> <span id="propina">0</span> CLP</p>
+                <p><strong>Total:</strong> <span id="total">0</span> CLP</p>
+            </div>
+            
+            <div class="d-flex justify-content-center align-items-center">
+                <a href="{% url 'inicio' %}" class="btn btn-secondary mx-2">Volver</a>
+                <button type="submit" class="btn btn-primary my-2 mx-2">Enviar Pedido</button>
+            </div>
+            
+        </form>
+    </div>
+</body>
+</html>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const form = document.getElementById('pedido-form');
+                const mesaSeleccionada = document.getElementById('mesa-seleccionada');
+                const productosSeleccionadosInput = document.getElementById('productos-seleccionados');
+                const productosLista = document.getElementById('productos-seleccionados-lista');
+                const subtotalElem = document.getElementById('subtotal');
+                const propinaElem = document.getElementById('propina');
+                const totalElem = document.getElementById('total');
+        
+                let productosSeleccionados = {};
+                let subtotal = 0;
+        
+                // Selección de mesa
+                document.querySelector('.mesas-container').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('mesa-libre')) {
+                        // Quitar selección previa
+                        document.querySelectorAll('.mesa-seleccionada').forEach(m => {
+                            m.classList.remove('mesa-seleccionada');
+                        });
+        
+                        // Agregar selección a la mesa clickeada
+                        e.target.classList.add('mesa-seleccionada');
+                        mesaSeleccionada.value = e.target.getAttribute('data-mesa-id');
+                    }
+                });
+        
+                // Selección de productos
+                document.getElementById('productos-lista').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('producto-btn')) {
+                        const id = e.target.getAttribute('data-id');
+                        const nombre = e.target.getAttribute('data-nombre');
+                        const precio = parseFloat(e.target.getAttribute('data-precio'));
+        
+                        if (!productosSeleccionados[id]) {
+                            productosSeleccionados[id] = { nombre, precio, cantidad: 1 };
+                        } else {
+                            productosSeleccionados[id].cantidad++;
+                        }
+        
+                        subtotal += precio;
+                        productosSeleccionadosInput.value = JSON.stringify(productosSeleccionados);
+                        actualizarDetalles();
+                    }
+                });
+        
+                // Actualización de detalles del pedido
+                const actualizarDetalles = () => {
+                    productosLista.innerHTML = '';
+                    Object.entries(productosSeleccionados).forEach(([id, p]) => {
+                        const productoHTML = document.createElement('div');
+                        productoHTML.classList.add('producto-detalle');
+                        productoHTML.innerHTML = `
+                            <p>
+                                ${p.nombre} x${p.cantidad} - ${(p.cantidad * p.precio).toFixed(0)} CLP 
+                                <button type="button" class="btn btn-sm btn-danger eliminar-btn" data-id="${id}">Quitar</button>
+                            </p>
+                        `;
+                        productosLista.appendChild(productoHTML);
+                    });
+        
+                    subtotalElem.textContent = subtotal.toFixed(0);
+                    propinaElem.textContent = (subtotal * 0.1).toFixed(0);
+                    totalElem.textContent = (subtotal * 1.1).toFixed(0);
+        
+                    // Añadir evento a los botones de eliminación
+                    document.querySelectorAll('.eliminar-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const id = e.target.getAttribute('data-id');
+                            eliminarProducto(id);
+                        });
+                    });
+                };
+        
+                // Eliminar producto seleccionado
+                const eliminarProducto = (id) => {
+                    if (productosSeleccionados[id]) {
+                        const precioTotalProducto = productosSeleccionados[id].precio * productosSeleccionados[id].cantidad;
+                        subtotal -= precioTotalProducto;
+                        delete productosSeleccionados[id];
+                        productosSeleccionadosInput.value = JSON.stringify(productosSeleccionados);
+                        actualizarDetalles();
+                    }
+                };
+        
+                // Envío del formulario
+                form.addEventListener('submit', (e) => {
+                    if (!mesaSeleccionada.value) {
+                        e.preventDefault();
+                        alert('Selecciona una mesa antes de guardar el pedido.');
+                    }
+                });
+            });
+
+            document.addEventListener('DOMContentLoaded', function() {
+                // Obtener los botones de categorías
+                const categoriaBtns = document.querySelectorAll('.categoria-btn');
+                const productosLista = document.getElementById('productos-lista');
+            
+                categoriaBtns.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const categoriaSeleccionada = btn.getAttribute('data-categoria');
+                        
+                        // Mostrar solo los productos de la categoría seleccionada
+                        const productos = document.querySelectorAll('.producto-item');
+                        productos.forEach(producto => {
+                            const categoriaProducto = producto.getAttribute('data-categoria');
+                            
+                            if (categoriaProducto === categoriaSeleccionada || categoriaSeleccionada === 'Todos') {
+                                producto.style.display = 'block'; // Mostrar producto
+                            } else {
+                                producto.style.display = 'none'; // Ocultar producto
+                            }
+                        });
+                    });
+                });
+            });
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const categoriaBtns = document.querySelectorAll('.categoria-btn');
+                const productosLista = document.getElementById('productos-lista');
+    
+                categoriaBtns.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const categoriaSeleccionada = btn.getAttribute('data-categoria');
+    
+                        // Mostrar los productos de la categoría seleccionada
+                        const productos = document.querySelectorAll('.producto-item');
+                        productos.forEach(producto => {
+                            const categoriaProducto = producto.getAttribute('data-categoria');
+                            
+                            if (categoriaProducto === categoriaSeleccionada) {
+                                producto.style.display = 'block'; // Mostrar producto
+                            } else {
+                                producto.style.display = 'none'; // Ocultar producto
+                            }
+                        });
+    
+                        // Mostrar la lista de productos después de seleccionar una categoría
+                        productosLista.style.display = 'block';
+                    });
+                });
+            });
+        </script>
+    </body>
+    </html>
+
